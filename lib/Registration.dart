@@ -1,10 +1,15 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:form_field_validator/form_field_validator.dart';
 import 'package:onboarding/AppThemeMode.dart';
+import 'package:onboarding/Helper.dart';
 import 'package:onboarding/LoginRegistrationModel.dart';
 import 'package:onboarding/MyAppBar.dart';
 import 'package:onboarding/Profile.dart';
+import 'package:onboarding/ResposeModels.dart';
 import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
 
 class Registration extends StatefulWidget {
   Registration({Key key}) : super(key: key);
@@ -18,10 +23,13 @@ class _Registration extends State<Registration> {
   RegistrationModel model = new RegistrationModel();
   bool isdarkmodeon = false;
   bool _showPassword = false;
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   @override
   Widget build(BuildContext context) {
     final darkTheme = Provider.of<AppThemeMode>(context);
+
     return Scaffold(
+        key: _scaffoldKey,
         appBar: MyAppBar(title: "Registration"),
         body: Form(
             key: _formKey,
@@ -96,16 +104,13 @@ class _Registration extends State<Registration> {
                     child: RaisedButton(
                       child: Text('Registration'),
                       onPressed: () => {
+                        Helper.showLoaderDialog(context),
+
                         if (_formKey.currentState.validate())
-                          {
-                            Navigator.pushAndRemoveUntil(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) => Profile(
-                                          model: model,
-                                        )),
-                                (route) => false)
-                          }
+                          {RegistrationRequest(context)}
+                        else
+                          {Navigator.pop(context)}
+                        //
                       },
                     )),
                 Container(
@@ -116,5 +121,24 @@ class _Registration extends State<Registration> {
                     )),
               ],
             )));
+  }
+
+  RegistrationRequest(BuildContext context) async {
+    final response = await http.post(
+      Uri.https('onbording.gointens.in', 'api/Registration'),
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: jsonEncode(model),
+    );
+    if (response.statusCode < 299) {
+      User user = User.fromJson(jsonDecode(response.body));
+      Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => Profile(model: user)),
+          (route) => false);
+    } else {
+      Helper.showSnakbar(response.body, context, _scaffoldKey);
+    }
   }
 }
